@@ -1,0 +1,365 @@
+---
+import { getEmDashEntry, decodeSlug } from "emdash";
+import { Image, PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+
+const countrySlug = decodeSlug(Astro.params.country);
+const tokenSlug = decodeSlug(Astro.params.token);
+
+if (!countrySlug || !tokenSlug) {
+	return Astro.redirect("/404");
+}
+
+const [{ entry: country, cacheHint: ch1 }, { entry: token, cacheHint: ch2 }] =
+	await Promise.all([
+		getEmDashEntry("countriess", countrySlug),
+		getEmDashEntry("tokens", tokenSlug),
+	]);
+
+if (!country || !token) {
+	return Astro.redirect("/404");
+}
+
+if (Astro.cache?.enabled) Astro.cache.set(ch1);
+
+const title = `${token.data.title} in ${country.data.title}`;
+
+const availableCountries = Array.isArray(token.data.available_countries)
+	? (token.data.available_countries as { country_slug: string; country_name: string }[])
+	: [];
+
+const otherCountries = availableCountries.filter((c) => c.country_slug !== countrySlug);
+---
+
+<Base title={title} description={`${token.data.title} cryptocurrency availability in ${country.data.title}`}>
+	<div class="combo-page">
+
+		<nav class="breadcrumb">
+			<a href="/countriess">Countries</a>
+			<span class="sep">›</span>
+			<a href={`/countriess/${countrySlug}`}>{country.data.title}</a>
+			<span class="sep">›</span>
+			<span>{token.data.title}</span>
+		</nav>
+
+		<header class="combo-header">
+			<div class="combo-header-inner">
+				<div class="country-block">
+					{country.data.image && (
+						<div class="country-flag">
+							<Image image={country.data.image} />
+						</div>
+					)}
+					<div>
+						<p class="block-label">Country</p>
+						<h1 class="country-name">{country.data.title}</h1>
+					</div>
+				</div>
+
+				<div class="combo-divider">×</div>
+
+				<div class="token-block">
+					<div class="token-icon">
+						<span>{token.data.title.slice(0, 2)}</span>
+					</div>
+					<div>
+						<p class="block-label">{token.data.type ?? "Token"}</p>
+						<h2 class="token-name">{token.data.title}</h2>
+						{token.data.second_title && (
+							<p class="token-fullname">{token.data.second_title}</p>
+						)}
+					</div>
+				</div>
+			</div>
+
+			<div class="availability-badge">
+				<span class="badge-dot"></span>
+				Available in {country.data.title}
+			</div>
+		</header>
+
+		<div class="combo-body">
+			{country.data.text && (
+				<section class="info-section">
+					<h3 class="section-title">About {country.data.title}</h3>
+					<p class="country-text">{country.data.text}</p>
+				</section>
+			)}
+
+			{token.data.text && (
+				<section class="info-section">
+					<h3 class="section-title">About {token.data.title}</h3>
+					<div class="token-text">
+						<PortableText value={token.data.text} />
+					</div>
+				</section>
+			)}
+
+			{otherCountries.length > 0 && (
+				<section class="info-section">
+					<h3 class="section-title">
+						{token.data.title} also available in
+					</h3>
+					<div class="other-countries">
+						{otherCountries.map((c) => (
+							<a href={`/${c.country_slug}/${tokenSlug}`} class="other-country-link">
+								{c.country_name}
+							</a>
+						))}
+					</div>
+				</section>
+			)}
+		</div>
+
+		<div class="combo-footer">
+			<a href={`/countriess/${countrySlug}`} class="footer-link">
+				← All tokens in {country.data.title}
+			</a>
+			<a href={`/tokens/${tokenSlug}`} class="footer-link">
+				{token.data.title} — full details →
+			</a>
+		</div>
+
+	</div>
+</Base>
+
+<style>
+	.combo-page {
+		max-width: var(--wide-width);
+		margin: 0 auto;
+		padding: var(--spacing-8) var(--spacing-6) var(--spacing-16);
+	}
+
+	.breadcrumb {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		margin-bottom: var(--spacing-8);
+	}
+
+	.breadcrumb a {
+		color: var(--color-muted);
+		text-decoration: none;
+		transition: color var(--transition-fast);
+	}
+
+	.breadcrumb a:hover {
+		color: var(--color-accent);
+	}
+
+	.sep {
+		color: var(--color-border);
+	}
+
+	.combo-header {
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius-lg);
+		padding: var(--spacing-8);
+		margin-bottom: var(--spacing-10);
+	}
+
+	.combo-header-inner {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-8);
+		flex-wrap: wrap;
+		margin-bottom: var(--spacing-6);
+	}
+
+	.country-block,
+	.token-block {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-4);
+	}
+
+	.country-flag {
+		width: 64px;
+		height: 44px;
+		border-radius: var(--radius);
+		overflow: hidden;
+		flex-shrink: 0;
+		background: var(--color-border-subtle);
+	}
+
+	.country-flag img {
+		width: 100%;
+		height: 100% !important;
+		object-fit: cover;
+	}
+
+	.token-icon {
+		width: 52px;
+		height: 52px;
+		border-radius: 50%;
+		background: var(--color-accent);
+		color: var(--color-on-accent);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: var(--font-size-lg);
+		font-weight: 700;
+		flex-shrink: 0;
+		letter-spacing: -0.05em;
+	}
+
+	.block-label {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		margin-bottom: var(--spacing-1);
+	}
+
+	.country-name {
+		font-size: var(--font-size-2xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+	}
+
+	.token-name {
+		font-size: var(--font-size-2xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+	}
+
+	.token-fullname {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		margin-top: 2px;
+	}
+
+	.combo-divider {
+		font-size: var(--font-size-3xl);
+		color: var(--color-border);
+		font-weight: 300;
+		flex-shrink: 0;
+	}
+
+	.availability-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--spacing-2);
+		font-size: var(--font-size-sm);
+		color: #16a34a;
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		padding: var(--spacing-1) var(--spacing-3);
+		border-radius: 999px;
+	}
+
+	:root.dark .availability-badge {
+		color: #4ade80;
+		background: #052e16;
+		border-color: #166534;
+	}
+
+	.badge-dot {
+		width: 7px;
+		height: 7px;
+		border-radius: 50%;
+		background: currentColor;
+		flex-shrink: 0;
+	}
+
+	.combo-body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-10);
+	}
+
+	.info-section {
+		border-top: 1px solid var(--color-border-subtle);
+		padding-top: var(--spacing-8);
+	}
+
+	.section-title {
+		font-size: var(--font-size-lg);
+		font-weight: 600;
+		margin-bottom: var(--spacing-4);
+		color: var(--color-text);
+	}
+
+	.country-text {
+		font-size: var(--font-size-base);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text-secondary);
+		white-space: pre-wrap;
+	}
+
+	.token-text {
+		font-size: var(--font-size-base);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text-secondary);
+	}
+
+	.token-text :global(p) {
+		margin-bottom: 1em;
+	}
+
+	.other-countries {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-2);
+	}
+
+	.other-country-link {
+		padding: var(--spacing-2) var(--spacing-3);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		transition:
+			color var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.other-country-link:hover {
+		color: var(--color-text);
+		border-color: var(--color-accent);
+	}
+
+	.combo-footer {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: var(--spacing-12);
+		padding-top: var(--spacing-6);
+		border-top: 1px solid var(--color-border-subtle);
+		flex-wrap: wrap;
+		gap: var(--spacing-4);
+	}
+
+	.footer-link {
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		text-decoration: none;
+		transition: color var(--transition-fast);
+	}
+
+	.footer-link:hover {
+		color: var(--color-accent);
+	}
+
+	@media (max-width: 640px) {
+		.combo-header-inner {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: var(--spacing-4);
+		}
+
+		.combo-divider {
+			display: none;
+		}
+
+		.combo-footer {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+	}
+</style>

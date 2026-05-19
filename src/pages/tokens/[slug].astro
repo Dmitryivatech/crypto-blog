@@ -58,7 +58,7 @@ if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
 						</h2>
 						<div class="country-grid">
 							{token.data.available_countries.map((c: { country_slug: string; country_name: string }) => (
-								<a href={`/countriess/${c.country_slug}`} class="country-block">
+								<a href={`/${c.country_slug}/${slug}`} class="country-block">
 									{c.country_name}
 								</a>
 							))}

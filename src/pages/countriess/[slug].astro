@@ -70,7 +70,7 @@ const moreCount = matchingTokens.length - visibleTokens.length;
 					</h2>
 					<div class="token-grid">
 						{visibleTokens.map((t) => (
-							<a href={`/tokens/${t.id}`} class="token-block">
+							<a href={`/${slug}/${t.id}`} class="token-block">
 								<span class="token-block-title">{t.data.title}</span>
 								{t.data.type && (
 									<span class="token-block-type">{t.data.type}</span>

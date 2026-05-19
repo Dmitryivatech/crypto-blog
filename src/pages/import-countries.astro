@@ -1,0 +1,115 @@
+---
+export const prerender = false;
+
+import { applySeed } from "emdash";
+import { getDb } from "emdash/runtime";
+import { createStorage } from "@emdash-cms/cloudflare/storage/r2";
+import countriesData from "../../seed/countries-import.json";
+
+type ScrapedCountry = {
+	slug: string;
+	name: string;
+	flag?: string;
+	text?: string;
+};
+
+const wantsRun = Astro.url.searchParams.get("run") === "1";
+
+let report: {
+	mode: string;
+	count?: number;
+	preview?: ScrapedCountry[];
+	result?: unknown;
+	error?: string;
+} = { mode: "preview" };
+
+try {
+	const countries = countriesData as ScrapedCountry[];
+
+	const entries = countries.map((c) => {
+		const data: Record<string, unknown> = {
+			title: c.name,
+			text: c.text ?? "",
+		};
+		if (c.flag) {
+			// $media reference: applySeed with skipMediaDownload=true turns this
+			// into an external MediaValue pointing at the flag SVG on GitHub.
+			data.image = {
+				$media: {
+					url: c.flag,
+					alt: `Flag of ${c.name}`,
+					filename: c.flag.split("/").pop() ?? "flag.svg",
+				},
+			};
+		}
+		return {
+			id: c.slug,
+			slug: c.slug,
+			status: "published" as const,
+			data,
+		};
+	});
+
+	if (!wantsRun) {
+		report = {
+			mode: "preview",
+			count: entries.length,
+			preview: countries.slice(0, 3),
+		};
+	} else {
+		const db = await getDb();
+		const seed = {
+			$schema: "https://emdashcms.com/seed.schema.json",
+			version: "1" as const,
+			content: {
+				countriess: entries,
+			},
+		};
+		const storage = createStorage({ binding: "MEDIA" });
+		const result = await applySeed(db, seed, {
+			includeContent: true,
+			onConflict: "update",
+			storage,
+			skipMediaDownload: false,
+		});
+		report = { mode: "run", count: entries.length, result };
+	}
+} catch (e) {
+	report = { mode: "error", error: String(e instanceof Error ? e.stack : e) };
+}
+---
+
+<html>
+	<head>
+		<title>Import Countries</title>
+		<style>
+			body { font-family: monospace; padding: 2rem; max-width: 900px; }
+			pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow: auto; }
+			.btn { display: inline-block; padding: 0.5rem 1rem; background: #4f46e5; color: white; text-decoration: none; border-radius: 4px; margin-top: 1rem; }
+		</style>
+	</head>
+	<body>
+		<h1>Import Countries</h1>
+		{report.mode === "preview" && (
+			<>
+				<p><strong>{report.count}</strong> countries ready to import.</p>
+				<p>Preview (first 3):</p>
+				<pre>{JSON.stringify(report.preview, null, 2)}</pre>
+				<a href="/import-countries?run=1" class="btn">Run import</a>
+			</>
+		)}
+		{report.mode === "run" && (
+			<>
+				<p>Imported <strong>{report.count}</strong> entries.</p>
+				<pre>{JSON.stringify(report.result, null, 2)}</pre>
+				<p><a href="/countriess">View on /countriess</a></p>
+			</>
+		)}
+		{report.mode === "error" && (
+			<>
+				<p style="color: red">Error:</p>
+				<pre>{report.error}</pre>
+			</>
+		)}
+	</body>
+</html>

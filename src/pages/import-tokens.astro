@@ -1,0 +1,141 @@
+---
+export const prerender = false;
+
+import { applySeed } from "emdash";
+import { getDb } from "emdash/runtime";
+import tokensData from "../../seed/tokens-import.json";
+
+type CountryItem = { country_slug: string; country_name: string };
+type TokenEntry = {
+	slug: string;
+	title: string;
+	type: string;
+	second_title: string;
+	text: unknown[];
+	available_countries_ref?: string;
+};
+
+const { country_pools, tokens } = tokensData as {
+	country_pools: Record<string, CountryItem[]>;
+	tokens: TokenEntry[];
+};
+
+const BATCH_SIZE = 200;
+const total = tokens.length;
+
+const fromParam = Number(Astro.url.searchParams.get("from") ?? "0");
+const sizeParam = Number(Astro.url.searchParams.get("size") ?? String(BATCH_SIZE));
+const wantsRun = Astro.url.searchParams.get("run") === "1";
+
+const from = Math.max(0, Number.isFinite(fromParam) ? fromParam : 0);
+const size = Math.max(1, Math.min(1000, Number.isFinite(sizeParam) ? sizeParam : BATCH_SIZE));
+const to = Math.min(total, from + size);
+
+let report: {
+	mode: string;
+	total: number;
+	from: number;
+	to: number;
+	count?: number;
+	result?: unknown;
+	error?: string;
+	nextFrom?: number;
+} = { mode: "preview", total, from, to };
+
+try {
+	const slice = tokens.slice(from, to);
+	const entries = slice.map((t) => {
+		const countries = t.available_countries_ref
+			? (country_pools[t.available_countries_ref] ?? [])
+			: [];
+		return {
+			id: t.slug,
+			slug: t.slug,
+			status: "published" as const,
+			data: {
+				title: t.title,
+				type: t.type,
+				second_title: t.second_title,
+				text: t.text,
+				available_countries: countries,
+			},
+		};
+	});
+
+	if (!wantsRun) {
+		report = { mode: "preview", total, from, to, count: entries.length };
+	} else {
+		const db = await getDb();
+		const seed = {
+			$schema: "https://emdashcms.com/seed.schema.json",
+			version: "1" as const,
+			content: { tokens: entries },
+		};
+		const result = await applySeed(db, seed, {
+			includeContent: true,
+			onConflict: "update",
+		});
+		const nextFrom = to < total ? to : undefined;
+		report = { mode: "run", total, from, to, count: entries.length, result, nextFrom };
+	}
+} catch (e) {
+	report = { mode: "error", total, from, to, error: String(e instanceof Error ? e.stack : e) };
+}
+---
+
+<html>
+	<head>
+		<title>Import Tokens</title>
+		<style>
+			body { font-family: monospace; padding: 2rem; max-width: 900px; }
+			pre { background: #f4f4f4; padding: 1rem; border-radius: 4px; overflow: auto; max-height: 400px; }
+			.btn { display: inline-block; padding: 0.5rem 1rem; background: #4f46e5; color: white; text-decoration: none; border-radius: 4px; margin: 0.5rem 0.5rem 0 0; }
+			.btn-secondary { background: #6b7280; }
+			.bar { background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; margin: 1rem 0; }
+			.bar-fill { background: #4f46e5; height: 100%; }
+		</style>
+	</head>
+	<body>
+		<h1>Import Tokens</h1>
+		<p>Total tokens in seed: <strong>{report.total}</strong></p>
+		<div class="bar">
+			<div class="bar-fill" style={`width: ${(report.to / report.total * 100).toFixed(1)}%`}></div>
+		</div>
+		<p>Current batch: <strong>{report.from} → {report.to}</strong> ({report.count ?? "—"} entries)</p>
+
+		{report.mode === "preview" && (
+			<>
+				<p>Click "Run batch" to import this slice. Then continue with the next-batch button.</p>
+				<a href={`/import-tokens?from=${report.from}&size=${size}&run=1`} class="btn">Run batch</a>
+			</>
+		)}
+
+		{report.mode === "run" && (
+			<>
+				<p>✅ Batch imported.</p>
+				<pre>{JSON.stringify(report.result, null, 2)}</pre>
+				{report.nextFrom !== undefined ? (
+					<>
+						<a href={`/import-tokens?from=${report.nextFrom}&size=${size}&run=1`} class="btn">
+							Run next batch ({report.nextFrom}–{Math.min(report.total, report.nextFrom + size)})
+						</a>
+						<a href={`/import-tokens?from=${report.nextFrom}&size=${size}`} class="btn btn-secondary">Preview next</a>
+					</>
+				) : (
+					<>
+						<p>🎉 All batches done!</p>
+						<a href="/tokens" class="btn">View /tokens</a>
+					</>
+				)}
+			</>
+		)}
+
+		{report.mode === "error" && (
+			<>
+				<p style="color: red">Error:</p>
+				<pre>{report.error}</pre>
+				<a href={`/import-tokens?from=${report.from}&size=${size}&run=1`} class="btn">Retry batch</a>
+			</>
+		)}
+	</body>
+</html>

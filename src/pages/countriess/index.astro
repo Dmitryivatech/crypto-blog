@@ -1,0 +1,154 @@
+---
+import { getEmDashCollection } from "emdash";
+import { Image } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+
+// Если slug коллекции в админке другой — поменяй "countriess" здесь и в [slug].astro
+const { entries: countries, cacheHint } = await getEmDashCollection("countriess", {
+	orderBy: { created_at: "desc" },
+});
+
+if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
+---
+
+<Base title="Countries" description="Browse all countries">
+	<div class="countries-page">
+		<header class="page-header">
+			<h1 class="page-title">Countries</h1>
+			<p class="page-description">
+				{countries.length}
+				{countries.length === 1 ? "country" : "countries"}
+			</p>
+		</header>
+
+		{
+			countries.length === 0 ? (
+				<p class="empty">No countries yet.</p>
+			) : (
+				<div class="countries-grid">
+					{countries.map((country) => (
+						<a href={`/countriess/${country.id}`} class="country-card">
+							{/* Если slug поля картинки другой — поправь country.data.image */}
+							{country.data.image && (
+								<div class="country-image">
+									<Image image={country.data.image} />
+								</div>
+							)}
+							<div class="country-body">
+								<h2 class="country-title">{country.data.title}</h2>
+								{/* Если slug поля текста другой — поправь country.data.text */}
+								{country.data.text && (
+									<p class="country-excerpt">{country.data.text}</p>
+								)}
+							</div>
+						</a>
+					))}
+				</div>
+			)
+		}
+	</div>
+</Base>
+
+<style>
+	.countries-page {
+		max-width: var(--wide-width);
+		margin: 0 auto;
+		padding: var(--spacing-8) var(--spacing-6) var(--spacing-16);
+	}
+
+	.page-header {
+		margin-bottom: var(--spacing-12);
+	}
+
+	.page-title {
+		font-size: var(--font-size-4xl);
+		font-weight: 700;
+		letter-spacing: var(--tracking-tight);
+		margin-bottom: var(--spacing-2);
+	}
+
+	.page-description {
+		font-size: var(--font-size-lg);
+		color: var(--color-muted);
+	}
+
+	.empty {
+		color: var(--color-muted);
+		font-size: var(--font-size-lg);
+	}
+
+	.countries-grid {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: var(--spacing-8);
+	}
+
+	.country-card {
+		display: flex;
+		flex-direction: column;
+		text-decoration: none;
+		color: inherit;
+		transition: transform var(--transition-fast);
+	}
+
+	.country-card:hover {
+		transform: translateY(-2px);
+	}
+
+	.country-image {
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+		margin-bottom: var(--spacing-4);
+		height: 120px;
+	}
+
+	.country-image img {
+		width: 100%;
+		height: 100%!important;
+		object-fit: cover;
+		transition: transform 0.4s ease;
+	}
+
+	.country-card:hover .country-image img {
+		transform: scale(1.03);
+	}
+
+	.country-title {
+		font-size: var(--font-size-xl);
+		font-weight: 600;
+		margin-bottom: var(--spacing-2);
+		transition: color var(--transition-fast);
+	}
+
+	.country-card:hover .country-title {
+		color: var(--color-accent);
+	}
+
+	.country-excerpt {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		line-height: var(--leading-relaxed);
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	@media (max-width: 900px) {
+		.countries-grid {
+			grid-template-columns: repeat(2, 1fr);
+			gap: var(--spacing-6);
+		}
+	}
+
+	@media (max-width: 600px) {
+		.countries-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.page-title {
+			font-size: var(--font-size-3xl);
+		}
+	}
+</style>

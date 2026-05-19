@@ -1,0 +1,229 @@
+---
+import { getEmDashEntry, getEmDashCollection, decodeSlug } from "emdash";
+import { Image } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+
+const slug = decodeSlug(Astro.params.slug);
+
+if (!slug) {
+	return Astro.redirect("/404");
+}
+
+// Если slug коллекции в админке другой — поменяй "countriess" здесь и в index.astro
+const { entry: country, cacheHint } = await getEmDashEntry("countriess", slug);
+
+if (!country) {
+	return Astro.redirect("/404");
+}
+
+if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
+
+// Derive: tokens that include this country in available_countries
+// EmDash не умеет фильтровать по JSON-полю — берём все токены и фильтруем в JS.
+const TOKENS_LIMIT = 100;
+const { entries: allTokens } = await getEmDashCollection("tokens", { limit: 5000 });
+const matchingTokens = allTokens.filter((t) => {
+	const list = (t.data as { available_countries?: { country_slug: string }[] })
+		.available_countries;
+	return Array.isArray(list) && list.some((c) => c.country_slug === slug);
+});
+const visibleTokens = matchingTokens.slice(0, TOKENS_LIMIT);
+const moreCount = matchingTokens.length - visibleTokens.length;
+---
+
+<Base
+	title={country.data.title}
+	content={{ collection: "countriess", id: country.data.id, slug }}
+>
+	<article class="country-article">
+		<header class="country-header">
+			<a href="/countriess" class="back-link">← All countries</a>
+			<h1 class="country-title" {...country.edit.title}>{country.data.title}</h1>
+		</header>
+
+		{/* Если slug поля картинки другой — поправь country.data.image */}
+		{
+			country.data.image && (
+				<div class="country-hero" {...country.edit.image}>
+					<Image image={country.data.image} />
+				</div>
+			)
+		}
+
+		{/* Если slug поля текста другой — поправь country.data.text */}
+		{
+			country.data.text && (
+				<div class="country-content" {...country.edit.text}>
+					{country.data.text}
+				</div>
+			)
+		}
+
+		{
+			visibleTokens.length > 0 && (
+				<section class="country-tokens">
+					<h2 class="country-tokens-title">
+						Available tokens
+						<span class="country-tokens-count">
+							({matchingTokens.length})
+						</span>
+					</h2>
+					<div class="token-grid">
+						{visibleTokens.map((t) => (
+							<a href={`/tokens/${t.id}`} class="token-block">
+								<span class="token-block-title">{t.data.title}</span>
+								{t.data.type && (
+									<span class="token-block-type">{t.data.type}</span>
+								)}
+							</a>
+						))}
+					</div>
+					{moreCount > 0 && (
+						<p class="country-tokens-more">
+							+ {moreCount} more —{" "}
+							<a href="/tokens">view all tokens</a>
+						</p>
+					)}
+				</section>
+			)
+		}
+	</article>
+</Base>
+
+<style>
+	.country-article {
+		max-width: var(--content-width);
+		margin: 0 auto;
+		padding: var(--spacing-8) var(--spacing-6) var(--spacing-16);
+	}
+
+	.country-header {
+		margin-bottom: var(--spacing-8);
+	}
+
+	.back-link {
+		display: inline-block;
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		text-decoration: none;
+		margin-bottom: var(--spacing-4);
+		transition: color var(--transition-fast);
+	}
+
+	.back-link:hover {
+		color: var(--color-accent);
+	}
+
+	.country-title {
+		font-size: clamp(2rem, 5vw, var(--font-size-5xl));
+		font-weight: 700;
+		line-height: var(--leading-tight);
+		letter-spacing: var(--tracking-tight);
+	}
+
+	.country-hero {
+		margin-bottom: var(--spacing-8);
+		border-radius: var(--radius-lg);
+		overflow: hidden;
+		background: var(--color-surface);
+	}
+
+	.country-hero img {
+		width: 100%;
+		height: auto;
+		max-height: 500px;
+		object-fit: cover;
+	}
+
+	.country-content {
+		font-size: var(--font-size-lg);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text);
+		white-space: pre-wrap;
+	}
+
+	.country-tokens {
+		margin-top: var(--spacing-12);
+		padding-top: var(--spacing-8);
+		border-top: 1px solid var(--color-border-subtle);
+	}
+
+	.country-tokens-title {
+		font-size: var(--font-size-xl);
+		font-weight: 600;
+		margin-bottom: var(--spacing-6);
+		display: flex;
+		align-items: baseline;
+		gap: var(--spacing-2);
+	}
+
+	.country-tokens-count {
+		font-size: var(--font-size-sm);
+		font-weight: 400;
+		color: var(--color-muted);
+	}
+
+	.token-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+		gap: var(--spacing-2);
+	}
+
+	.token-block {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-1);
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius);
+		text-decoration: none;
+		color: inherit;
+		transition:
+			border-color var(--transition-fast),
+			transform var(--transition-fast);
+	}
+
+	.token-block:hover {
+		border-color: var(--color-accent);
+		transform: translateY(-1px);
+	}
+
+	.token-block-title {
+		font-size: var(--font-size-sm);
+		font-weight: 500;
+		color: var(--color-text);
+	}
+
+	.token-block-type {
+		font-size: var(--font-size-xs);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+	}
+
+	.country-tokens-more {
+		margin-top: var(--spacing-4);
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+	}
+
+	.country-tokens-more a {
+		color: var(--color-accent);
+		text-decoration: underline;
+	}
+
+	@media (max-width: 600px) {
+		.country-article {
+			padding: var(--spacing-6) var(--spacing-4) var(--spacing-12);
+		}
+
+		.country-title {
+			font-size: var(--font-size-3xl);
+		}
+
+		.token-grid {
+			grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		}
+	}
+</style>

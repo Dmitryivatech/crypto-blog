@@ -1,0 +1,247 @@
+---
+import { getEmDashEntry, decodeSlug } from "emdash";
+import { PortableText } from "emdash/ui";
+import Base from "../../layouts/Base.astro";
+
+const slug = decodeSlug(Astro.params.slug);
+
+if (!slug) {
+	return Astro.redirect("/404");
+}
+
+// Если slug коллекции в админке другой — поменяй "tokens" здесь и в index.astro
+const { entry: token, cacheHint } = await getEmDashEntry("tokens", slug);
+
+if (!token) {
+	return Astro.redirect("/404");
+}
+
+if (Astro.cache?.enabled) Astro.cache.set(cacheHint);
+---
+
+<Base
+	title={token.data.title}
+	content={{ collection: "tokens", id: token.data.id, slug }}
+>
+	<article class="token-article">
+		<header class="token-header">
+			<a href="/tokens" class="back-link">← All tokens</a>
+			{
+				token.data.type && (
+					<span class="token-type">{token.data.type}</span>
+				)
+			}
+			<h1 class="token-title" {...token.edit.title}>{token.data.title}</h1>
+			{
+				token.data.second_title && (
+					<p class="token-subtitle" {...token.edit.second_title}>
+						{token.data.second_title}
+					</p>
+				)
+			}
+		</header>
+
+		{
+			token.data.text && (
+				<div class="token-content" {...token.edit.text}>
+					<PortableText value={token.data.text} />
+				</div>
+			)
+		}
+
+		{
+			Array.isArray(token.data.available_countries) &&
+				token.data.available_countries.length > 0 && (
+					<section class="token-countries">
+						<h2 class="token-countries-title">
+							Available in {token.data.available_countries.length} countries
+						</h2>
+						<div class="country-grid">
+							{token.data.available_countries.map((c: { country_slug: string; country_name: string }) => (
+								<a href={`/countriess/${c.country_slug}`} class="country-block">
+									{c.country_name}
+								</a>
+							))}
+						</div>
+					</section>
+				)
+		}
+	</article>
+</Base>
+
+<style>
+	.token-article {
+		max-width: var(--content-width);
+		margin: 0 auto;
+		padding: var(--spacing-8) var(--spacing-6) var(--spacing-16);
+	}
+
+	.token-header {
+		margin-bottom: var(--spacing-10);
+	}
+
+	.back-link {
+		display: inline-block;
+		font-size: var(--font-size-sm);
+		color: var(--color-muted);
+		text-decoration: none;
+		margin-bottom: var(--spacing-4);
+		transition: color var(--transition-fast);
+	}
+
+	.back-link:hover {
+		color: var(--color-accent);
+	}
+
+	.token-type {
+		display: inline-block;
+		font-size: var(--font-size-xs);
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-wider);
+		color: var(--color-muted);
+		margin-bottom: var(--spacing-2);
+	}
+
+	.token-title {
+		font-size: clamp(2rem, 5vw, var(--font-size-5xl));
+		font-weight: 700;
+		line-height: var(--leading-tight);
+		letter-spacing: var(--tracking-tight);
+		margin-bottom: var(--spacing-3);
+	}
+
+	.token-subtitle {
+		font-size: var(--font-size-xl);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text-secondary);
+	}
+
+	.token-content {
+		font-size: var(--font-size-lg);
+		line-height: var(--leading-relaxed);
+		color: var(--color-text);
+	}
+
+	.token-content :global(p) {
+		margin-bottom: 1.5em;
+	}
+
+	.token-content :global(h2) {
+		font-size: var(--font-size-2xl);
+		margin-top: 2em;
+		margin-bottom: 0.75em;
+		font-weight: 600;
+	}
+
+	.token-content :global(h3) {
+		font-size: var(--font-size-xl);
+		margin-top: 1.75em;
+		margin-bottom: 0.5em;
+		font-weight: 600;
+	}
+
+	.token-content :global(ul),
+	.token-content :global(ol) {
+		margin-bottom: 1.5em;
+		padding-left: 1.5em;
+	}
+
+	.token-content :global(li) {
+		margin-bottom: 0.5em;
+	}
+
+	.token-content :global(blockquote) {
+		margin: 1.5em 0;
+		padding: var(--spacing-4) var(--spacing-6);
+		border-left: 3px solid var(--color-border);
+		background: var(--color-bg-subtle);
+		border-radius: 0 var(--radius) var(--radius) 0;
+		color: var(--color-text-secondary);
+		font-style: italic;
+	}
+
+	.token-content :global(a) {
+		color: var(--color-accent);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
+	.token-content :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.9em;
+		background: var(--color-surface);
+		padding: 0.2em 0.4em;
+		border-radius: var(--radius);
+	}
+
+	.token-content :global(pre) {
+		margin: 2em 0;
+		padding: var(--spacing-5);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: var(--font-size-sm);
+	}
+
+	.token-countries {
+		margin-top: var(--spacing-12);
+		padding-top: var(--spacing-8);
+		border-top: 1px solid var(--color-border-subtle);
+	}
+
+	.token-countries-title {
+		font-size: var(--font-size-xl);
+		font-weight: 600;
+		margin-bottom: var(--spacing-6);
+		color: var(--color-text);
+	}
+
+	.country-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+		gap: var(--spacing-2);
+	}
+
+	.country-block {
+		display: block;
+		padding: var(--spacing-3) var(--spacing-4);
+		background: var(--color-surface);
+		border: 1px solid var(--color-border-subtle);
+		border-radius: var(--radius);
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		text-decoration: none;
+		text-align: center;
+		transition:
+			color var(--transition-fast),
+			background var(--transition-fast),
+			border-color var(--transition-fast);
+	}
+
+	.country-block:hover {
+		color: var(--color-text);
+		background: var(--color-bg);
+		border-color: var(--color-accent);
+	}
+
+	@media (max-width: 600px) {
+		.token-article {
+			padding: var(--spacing-6) var(--spacing-4) var(--spacing-12);
+		}
+
+		.token-title {
+			font-size: var(--font-size-3xl);
+		}
+
+		.token-subtitle {
+			font-size: var(--font-size-lg);
+		}
+
+		.country-grid {
+			grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+		}
+	}
+</style>

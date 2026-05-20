@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "my-emdash-site",
+	"name": "crypto-blog",
 	"main": "./src/worker.ts",
 	"compatibility_date": "2026-02-24",
 	"compatibility_flags": ["nodejs_compat"],
@@ -8,6 +8,7 @@
 		{
 			"binding": "DB",
 			"database_name": "my-emdash-site",
+			"database_id": "4065ed7b-812d-4a91-ad1f-3ebcf83b50d8",
 		},
 	],
 	"r2_buckets": [
